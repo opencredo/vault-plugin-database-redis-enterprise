@@ -152,7 +152,7 @@ $ kubectl get redisenterpriseclusters.app.redislabs.com test-cluster --output js
 Running
 
 $ kubectl get redisenterprisedatabase.app.redislabs.com mydb --output jsonpath='{.status.status}'
-Active
+active
 ```
 
 Now the database is active the Vault Plugin tests can executes. For the tests to executed a set of credentials will need to be extracted from k8s. 
@@ -163,7 +163,7 @@ $ export TEST_USERNAME=$(kubectl get secret test-cluster -o jsonpath='{.data.use
 $ export TEST_PASSWORD=$(kubectl get secret test-cluster -o jsonpath='{.data.password}' | base64 -d)
 $ export TEST_DB_URL=https://localhost:$(kubectl get svc external-access --output jsonpath='{.spec.ports[].nodePort}')
 
-$ make test-acc
+$ make test
 ```
 
 Alongside the execution of the tests the Redis Enterprise dashboard can be used to explore the cluster.  The following kubectl command 
@@ -199,6 +199,9 @@ will be used with the Vault helm chart.
 The key takeaway from this overriding configuration is the location of the plugins directory.  This will be used later to register the Vault Plugin binary 
 with Vault.
 
+Note:  For the purpose of this guide the emptyDir volume is used, but a more appropriate volume should be used when multiple k8s nodes are used.
+If the Vault pod is moved to another node then the content stored in this volume will be erased.
+
 ```sh
 $ cat <<EOF>> override-values.yaml
 server:
@@ -221,7 +224,6 @@ server:
     - mountPath: /usr/local/libexec/vault
       name: plugins
 EOF
-
 ```
 
 The following command will instruct Helm to provision Vault using the previously generated YAML file.
@@ -290,6 +292,9 @@ Success! Enabled the database secrets engine at: database/
 ```
 
 Next the registered plugin is configured with the details to locate and authenticate with the Redis Enterprise Cluster.
+
+Note:  For the purpose of this guide the admin username and password can be used to register the plugin within Vault. 
+It is advised to create an additional user to represent Vault following the [User Management](https://docs.redislabs.com/latest/rs/administering/access-control/) guide.
 
 ```shell
 $ vault write database/config/redis-mydb plugin_name="redisenterprise-database-plugin" url="https://external-access.default.svc.cluster.local:9443" allowed_roles="*" database=mydb username=<PROVISIONED USERNAME> password=<PROVISIONED PASSWORD>
